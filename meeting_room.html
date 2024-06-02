@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Conferencing Room</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    #videos-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    video {
+      width: 30%;
+      margin: 10px;
+      border: 1px solid #ccc;
+    }
+
+    #remoteVideos {
+      display: flex;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="videos-container">
+    <video id="localVideo" autoplay></video>
+    <div id="remoteVideos"></div>
+  </div>
+  <script>
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideosContainer = document.getElementById('remoteVideos');
+    let peerConnection;
+    let websocket;
+
+    async function startVideoCall() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = stream;
+
+        const configuration = {
+          iceServers: [
+            { urls: 'stun:stun.stunprotocol.org' },
+            { urls: 'turn:numb.viagenie.ca', credential: 'yourpassword', username: 'yourusername' }
+          ]
+        };
+        peerConnection = new RTCPeerConnection(configuration);
+        peerConnection.addStream(stream);
+
+        peerConnection.ontrack = event => {
+          const remoteVideo = document.createElement('video');
+          remoteVideo.srcObject = event.streams[0];
+          remoteVideo.autoplay = true;
+          remoteVideo.setAttribute('playsinline', 'true');
+          remoteVideosContainer.appendChild(remoteVideo);
+        };
+
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            // Send ICE candidate to other peer
+            sendToServer({ candidate: event.candidate });
+          }
+        };
+
+        // Create and send offer to other peer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sendToServer({ offer: offer });
+      } catch (error) {
+        console.error('Error starting video call:', error);
+      }
+    }
+
+    function initWebSocket() {
+      websocket = new WebSocket('ws://your-signaling-server-url');
+      websocket.onopen = () => {
+        console.log('Connected to signaling server');
+      };
+      websocket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.offer) {
+          handleOfferMessage(message.offer);
+        } else if (message.answer) {
+          handleAnswerMessage(message.answer);
+        } else if (message.candidate) {
+          handleCandidateMessage(message.candidate);
+        }
+      };
+    }
+
+    function sendToServer(data) {
+      websocket.send(JSON.stringify(data));
+    }
+
+    function handleOfferMessage(offer) {
+      // Handle offer message received from other peer
+      // Create answer and send it back
+    }
+
+    function handleAnswerMessage(answer) {
+      // Handle answer message received from other peer
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+
+    function handleCandidateMessage(candidate) {
+      // Handle ICE candidate message received from other peer
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+
+    startVideoCall();
+    initWebSocket();
+  </script>
+</body>
+</html>
