@@ -82,7 +82,7 @@
     }
 
     function initWebSocket() {
-      websocket = new WebSocket('https://devninjax.github.io/Meeting_room/');
+      websocket = new WebSocket('wss://devninjax.github.io/Meeting_room/');
       websocket.onopen = () => {
         console.log('Connected to signaling server');
       };
@@ -105,7 +105,20 @@
     function handleOfferMessage(offer) {
       // Handle offer message received from other peer
       // Create answer and send it back
-    }
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+          .then(() => {
+              return peerConnection.createAnswer();
+          })
+          .then(answer => {
+              return peerConnection.setLocalDescription(answer);
+          })
+          .then(() => {
+              sendToServer({ answer: peerConnection.localDescription });
+          })
+          .catch(error => {
+              console.error('Error creating answer:', error);
+          });
+        }
 
     function handleAnswerMessage(answer) {
       // Handle answer message received from other peer
